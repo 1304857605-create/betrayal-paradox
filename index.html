@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>背叛者悖论 · Betrayal Paradox</title>
+<script src="ethers.umd.min.js"></script>
+<script src="abi.js"></script>
+<style>
+  :root {
+    --bg: #0b0d14; --card: #141824; --line: #262b3d; --text: #e8ecf5; --muted: #8b93a8;
+    --accent: #ff5c5c; --gold: #fbbf24; --good: #34d399; --blue: #6ee7ff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: radial-gradient(1000px 500px at 15% -10%, #251226 0%, var(--bg) 55%);
+    display: flex; justify-content: center; padding: 24px 14px;
+  }
+  .wrap { width: 100%; max-width: 860px; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  h1 .red { color: var(--accent); }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 12px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .grow { flex: 1; min-width: 200px; }
+  input {
+    width: 100%; padding: 9px 11px; border-radius: 9px; border: 1px solid var(--line);
+    background: #0d1019; color: var(--text); font-size: 13px; outline: none;
+  }
+  input:focus { border-color: var(--accent); }
+  button {
+    border: 0; border-radius: 9px; padding: 9px 13px; font-size: 13px; font-weight: 600;
+    cursor: pointer; background: var(--accent); color: #fff; transition: .15s;
+  }
+  button:hover { filter: brightness(1.1); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  button.ghost { background: transparent; border: 1px solid var(--line); color: var(--text); }
+  button.coop { background: #146b4b; }
+  button.betray { background: var(--accent); }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; word-break: break-all; }
+  .small { font-size: 12px; color: var(--muted); }
+  .log { color: var(--muted); font-size: 12px; margin-top: 8px; min-height: 16px; white-space: pre-wrap; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-top: 10px; }
+  .stat { background: #0d1019; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+  .stat b { display: block; font-size: 16px; margin-top: 2px; }
+  .stat span { color: var(--muted); font-size: 11px; }
+  .players { margin-top: 10px; display: grid; gap: 6px; }
+  .prow {
+    display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    background: #0d1019; border: 1px solid var(--line); border-radius: 9px; padding: 7px 10px; font-size: 12px;
+  }
+  .tag { font-size: 10px; padding: 2px 7px; border-radius: 999px; }
+  .tag.me { background: rgba(110,231,255,.15); color: var(--blue); }
+  .tag.c { background: rgba(251,191,36,.15); color: var(--gold); }
+  .tag.r { background: rgba(52,211,153,.15); color: var(--good); }
+  .tag.b { background: rgba(255,92,92,.15); color: var(--accent); }
+  .tag.f { background: rgba(139,147,168,.15); color: var(--muted); }
+  .banner {
+    display: none; border: 1px solid var(--accent); border-radius: 12px; padding: 14px;
+    background: rgba(255,92,92,.08); margin-top: 10px;
+  }
+  .banner.show { display: block; }
+  .banner h3 { margin: 0 0 6px; font-size: 17px; color: var(--accent); }
+  .actions { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .hint { color: var(--muted); font-size: 12px; line-height: 1.7; }
+  .hint code { color: var(--blue); }
+  .footer { color: var(--muted); font-size: 12px; text-align: center; margin: 18px 0 4px; }
+  .count { font-size: 22px; font-weight: 700; color: var(--gold); }
+</style>
+<style>
+  :root{
+    --bg:#08070d; --card:#130f1e; --line:#2a223a; --text:#f4eff9; --muted:#9389a6;
+    --accent:#ff3b5c; --gold:#ffc23c; --good:#2fd58b; --blue:#6ee7ff; --violet:#8b5cff;
+  }
+  body{
+    background:
+      radial-gradient(900px 520px at 82% -10%, rgba(255,59,92,.18), transparent 60%),
+      radial-gradient(900px 520px at 8% 112%, rgba(110,231,255,.10), transparent 60%),
+      #08070d;
+  }
+  .wrap { max-width: 920px; }
+  h1 { font-size: 30px; letter-spacing: .5px; }
+  h1 .red { color: var(--accent); text-shadow: 0 0 18px rgba(255,59,92,.6); }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 18px;
+    box-shadow: 0 12px 32px rgba(0,0,0,.38);
+  }
+  input { background: #0c0a14; border-color: var(--line); border-radius: 10px; }
+  input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,59,92,.12); }
+  button { border-radius: 10px; padding: 10px 16px; font-weight: 700; }
+  button.ghost { background: transparent; border: 1px solid var(--line); color: var(--text); }
+  button.coop { background: linear-gradient(135deg, #0f5a3c, #17a66b); box-shadow: 0 4px 16px rgba(47,213,139,.25); color:#fff; }
+  button.betray { background: linear-gradient(135deg, #7a1128, #ff3b5c); box-shadow: 0 4px 16px rgba(255,59,92,.35); color:#fff; }
+  button:not(.ghost):not(.coop):not(.betray) { background: linear-gradient(135deg, #5b4be0, #8b5cff); color:#fff; }
+  button:hover { transform: translateY(-1px); }
+  button:disabled { opacity: .35; transform: none; }
+  .count { font-size: 36px; font-weight: 800; color: var(--gold); text-shadow: 0 0 22px rgba(255,194,60,.5); font-variant-numeric: tabular-nums; }
+  .stat { background: #0c0a14; border-color: var(--line); border-radius: 12px; }
+  .stat b { font-size: 18px; color: var(--text); }
+  .stat span { color: var(--muted); }
+  #phaseTag { font-size: 12px; padding: 4px 11px; background: rgba(255,194,60,.15); color: var(--gold); border-radius: 999px; font-weight: 700; }
+  .prow { background: #0c0a14; border-color: var(--line); border-radius: 10px; }
+  .tag.me { background: rgba(110,231,255,.16); color: var(--blue); }
+  .tag.c { background: rgba(255,194,60,.16); color: var(--gold); }
+  .tag.r { background: rgba(47,213,139,.16); color: var(--good); }
+  .tag.b { background: rgba(255,59,92,.16); color: var(--accent); }
+  .tag.f { background: rgba(147,137,166,.16); color: var(--muted); }
+  .banner {
+    background: linear-gradient(135deg, rgba(255,59,92,.18), rgba(255,194,60,.08));
+    border-color: var(--accent); border-radius: 16px; box-shadow: 0 0 30px rgba(255,59,92,.25);
+  }
+  .banner h3 { font-size: 21px; }
+  @keyframes glowpulse { 0%,100% { box-shadow: 0 0 22px rgba(255,59,92,.25);} 50% { box-shadow: 0 0 42px rgba(255,59,92,.5);} }
+  .banner.show { animation: glowpulse 2s ease-in-out infinite; }
+  .footer { color: #5a5468; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>背叛者<span class="red">悖论</span> · Betrayal Paradox</h1>
+  <div class="sub">5 人各押 S，赞助方配 100% → 奖池 10S。5 轮 commit-reveal：恰好 1 人背叛他通吃；2 人以上背叛赞助方通吃；5 轮全合作玩家平分。</div>
+
+  <div class="card">
+    <div class="row">
+      <div class="grow"><input id="addr" type="text" placeholder="合约地址 0x...（Remix 部署后复制）" /></div>
+      <button id="loadBtn" class="ghost">加载合约</button>
+      <button id="connectBtn">连接钱包</button>
+    </div>
+    <div class="small" style="margin-top:8px">
+      账户：<span id="account" class="mono">未连接</span> ·
+      网络：<span id="network">-</span> ·
+      合约：<span id="contract" class="mono">未加载</span>
+    </div>
+    <div class="log" id="log"></div>
+  </div>
+
+  <div class="card">
+    <div class="row" style="margin-bottom:8px"><b>创建房间</b></div>
+    <div class="row">
+      <input id="cPlayers" type="number" value="5" title="人数" style="max-width:80px" />
+      <input id="cRounds" type="number" value="5" title="轮数" style="max-width:80px" />
+      <input id="cCommit" type="number" value="10" title="Commit 秒数" style="max-width:90px" />
+      <input id="cReveal" type="number" value="10" title="Reveal 秒数" style="max-width:90px" />
+      <input id="cStake" type="text" value="0.01" title="每人押金 MON" style="max-width:100px" />
+      <button id="createBtn">创建</button>
+    </div>
+    <div class="small" style="margin-top:6px">顺序：人数 / 轮数 / Commit秒 / Reveal秒 / 每人押金(MON)。演示用 5 / 5 / 10 / 10 / 0.01。</div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <div class="grow"><input id="roomId" type="number" placeholder="房间 ID" /></div>
+      <button id="openRoomBtn" class="ghost">打开房间</button>
+    </div>
+    <div id="roomPanel" style="display:none">
+      <div class="row" style="margin-top:10px">
+        <span class="tag c" id="phaseTag">-</span>
+        <span class="small" id="roundTag"></span>
+        <span class="count" id="countdown">--:--</span>
+      </div>
+      <div class="grid">
+        <div class="stat"><span>奖池</span><b id="pot">-</b></div>
+        <div class="stat"><span>玩家</span><b id="players">-</b></div>
+        <div class="stat"><span>赞助配资</span><b id="sponsorMatch">-</b></div>
+        <div class="stat"><span>本轮揭晓</span><b id="revealCount">-</b></div>
+      </div>
+      <div class="small" style="margin-top:8px">
+        赞助方：<span id="sponsor" class="mono">-</span> ·
+        房主：<span id="host" class="mono">-</span>
+      </div>
+      <div class="players" id="playersList"></div>
+      <div class="actions" id="actions"></div>
+      <div class="banner" id="banner">
+        <h3 id="bannerTitle">-</h3>
+        <div class="small" id="bannerBody"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card hint">
+    <b>怎么玩（solo 测试版）</b><br/>
+    1. Remix 部署 <code>BetrayalGame.sol</code>（无构造参数）→ 复制地址 → 粘贴到上面“加载合约”。<br/>
+    2. 账号 A 创建房间；A/B/C/D/E 五个账号依次“加入”（各押 0.01 MON）。<br/>
+    3. 任一账号“赞助配资”0.05 MON（= 5 × 0.01）。<br/>
+    4. 房主“开始游戏”；每轮每人只点一次“提交合作/背叛”；到点后**房主/赞助方自动进揭晓、代所有人揭晓并结算**，结果自动出现。<br/>
+    5. 未在倒计时内提交的玩家本轮弃权；房主/赞助方作为“司机”承担推进和结算的 gas。<br/>
+    测试网：Chain ID <code>10143</code>，RPC <code>https://testnet-rpc.monad.xyz</code>，水龙头 <code>https://testnet.monad.xyz</code>。
+  </div>
+
+  <div class="footer">Monad Blitz @广州 · 2026-11-21 · 提交截止 18:30</div>
+</div>
+
+<script>
+const ABI = window.BETRAYAL_ABI;
+const MONAD = {
+  chainId: "0x279f",
+  chainName: "Monad Testnet",
+  nativeCurrency: { name: "MON", symbol: "MON", decimals: 18 },
+  rpcUrls: ["https://testnet-rpc.monad.xyz"],
+  blockExplorerUrls: ["https://testnet.monadvision.com"]
+};
+const PHASES = ["🏁 大厅", "✍️ Commit 提交", "👁 Reveal 揭晓", "🏆 已结束"];
+const REASONS = { 1: "🏆 恰好 1 人背叛 → 背叛者通吃", 2: "💸 2 人以上背叛 → 赞助方通吃", 3: "🤝 5 轮全合作 → 玩家平分" };
+
+let provider, signer, account, contract, contractAddress, roomId = null, pollTimer = null;
+let lastInfo = null, lastRows = null;
+let autoRound = { begin: -1, settle: -1, reveal: -1 };
+
+const $ = (id) => document.getElementById(id);
+const log = (m) => { $("log").textContent = m; };
+const short = (a) => (a ? a.slice(0, 6) + "..." + a.slice(-4) : "-");
+const num = (x) => Number(BigInt(x == null ? 0 : x));
+const fmt = (w) => ethers.formatEther(w) + " MON";
+const zeroAddr = "0x0000000000000000000000000000000000000000";
+
+function saltKey(r, acct) {
+  return "bg:" + contractAddress + ":" + r + ":" + (acct || "").toLowerCase();
+}
+function randomSalt() {
+  const b = new Uint8Array(32);
+  crypto.getRandomValues(b);
+  return "0x" + [...b].map((x) => x.toString(16).padStart(2, "0")).join("");
+}
+
+async function ensureNetwork() {
+  const cur = await window.ethereum.request({ method: "eth_chainId" });
+  if (cur.toLowerCase() === MONAD.chainId) return;
+  try {
+    await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: MONAD.chainId }] });
+  } catch (e) {
+    if (e.code === 4902) {
+      await window.ethereum.request({ method: "wallet_addEthereumChain", params: [MONAD] });
+    } else throw e;
+  }
+}
+
+async function connect() {
+  if (!window.ethereum) { alert("请先安装 MetaMask"); return; }
+  await ensureNetwork();
+  const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+  account = ethers.getAddress(accounts[0]);
+  provider = new ethers.BrowserProvider(window.ethereum);
+  signer = await provider.getSigner();
+  $("account").textContent = short(account);
+  const net = await provider.getNetwork();
+  $("network").textContent = net.name + " (" + net.chainId + ")";
+  log("钱包已连接");
+  if (contractAddress) { loadContract(); refresh(); }
+}
+
+function loadContract() {
+  const v = $("addr").value.trim();
+  if (!ethers.isAddress(v)) { log("合约地址格式不对"); return; }
+  contractAddress = v;
+  localStorage.setItem("bg_contract", v);
+  contract = new ethers.Contract(contractAddress, ABI, provider);
+  $("contract").textContent = short(contractAddress);
+  autoRound = { begin: -1, settle: -1, reveal: -1 };
+  startPolling();
+  log("合约已加载");
+}
+
+async function withTx(fn) {
+  try {
+    if (!signer) await connect();
+    const tx = await fn(signer);
+    log("交易已发送：" + tx.hash + "，等待确认...");
+    await tx.wait();
+    log("交易确认：" + tx.hash);
+    await refresh();
+  } catch (e) {
+    console.error(e);
+    log("失败：" + (e.shortMessage || e.message || e));
+  }
+}
+
+function renderActions(info, rows) {
+  const phase = num(info.phase);
+  const maxP = num(info.maxPlayers);
+  const now = Math.floor(Date.now() / 1000);
+  const deadline = num(info.phaseDeadline);
+  const acct = (account || "").toLowerCase();
+  const me = rows.find((r) => r.p.toLowerCase() === acct);
+  const isHost = info.host.toLowerCase() === acct;
+  const isSponsor = info.sponsor && info.sponsor !== zeroAddr && info.sponsor.toLowerCase() === acct;
+  const isDriver = isHost || isSponsor;
+  const html = [];
+  const b = (cls, action, label, disabled) =>
+    '<button class="' + cls + '" data-action="' + action + '"' + (disabled ? " disabled" : "") + ">" + label + "</button>";
+
+  if (phase === 0) {
+    const joined = !!me;
+    const full = rows.length >= maxP;
+    const hasSponsor = info.sponsor && info.sponsor !== zeroAddr;
+    html.push(b("ghost", "join", "💰 加入（押 " + fmt(info.stake) + "）", joined || full));
+    html.push(b("ghost", "sponsor", "🏦 赞助配资（" + fmt(info.stake * BigInt(maxP)) + "）", !full || hasSponsor));
+    html.push(b("", "start", "▶ 开始游戏", !full || !hasSponsor || !isHost));
+  } else if (phase === 1) {
+    html.push('<span class="small" style="width:100%">⏳ 未在倒计时内提交的玩家本轮弃权</span>');
+    const committed = me ? me.committed : false;
+    html.push(b("coop", "commit0", "🤝 提交合作", !me || committed));
+    html.push(b("betray", "commit1", "🔪 提交背叛", !me || committed));
+    if (now >= deadline) html.push(b("ghost", "beginReveal", "👁 进入揭晓", !isDriver));
+    else html.push('<span class="small">到点后房主/赞助方自动进入揭晓</span>');
+  } else if (phase === 2) {
+    html.push('<span class="small" style="width:100%">⏳ 未在倒计时内提交的玩家本轮弃权</span>');
+    if (isDriver) {
+      html.push(b("coop", "revealAll", "👁 一键揭晓全部", false));
+      if (now >= deadline) html.push(b("ghost", "settle", "⚖️ 结算本轮", false));
+      else html.push('<span class="small">到点后房主/赞助方自动结算</span>');
+    } else {
+      const canReveal = me && me.committed && !me.revealed;
+      html.push(b("coop", "reveal", "👁 揭晓我的选择", !canReveal));
+    }
+  } else if (phase === 3) {
+    html.push('<span class="small">🏁 游戏已结束</span>');
+  }
+  $("actions").innerHTML = html.join("");
+}
+
+function renderPlayers(rows) {
+  const list = $("playersList");
+  list.innerHTML = rows.length
+    ? ""
+    : '<div class="prow"><span class="small">还没有玩家</span></div>';
+  for (const r of rows) {
+    const me = r.p.toLowerCase() === (account || "").toLowerCase();
+    const div = document.createElement("div");
+    div.className = "prow";
+    let tags = "";
+    if (me) tags += '<span class="tag me">我</span>';
+    if (r.forfeited) tags += '<span class="tag f">弃权</span>';
+    else if (r.revealed) tags += '<span class="tag r">已揭晓·' + (r.choice === 1 ? "背叛" : "合作") + "</span>";
+    else if (r.committed) tags += '<span class="tag c">已提交</span>';
+    div.innerHTML =
+      '<span class="mono">' + short(r.p) + "</span>" +
+      '<span>' + tags + "</span>";
+    list.appendChild(div);
+  }
+}
+
+function renderBanner(info) {
+  const phase = num(info.phase);
+  const b = $("banner");
+  if (phase !== 3) { b.classList.remove("show"); return; }
+  b.classList.add("show");
+  const reason = num(info.endReason);
+  $("bannerTitle").textContent = REASONS[reason] || "已结束";
+  const winner = info.winner && info.winner !== zeroAddr ? info.winner : "全体玩家";
+  const payout = fmt(info.lastPayout);
+  $("bannerBody").textContent =
+    "赢家：" + (winner === "全体玩家" ? winner : short(winner)) + " · 金额：" + payout +
+    " · 结果可在区块浏览器按交易查证。";
+}
+
+function startPolling() {
+  if (pollTimer) {
+    clearInterval(pollTimer.tick);
+    clearInterval(pollTimer.refresh);
+  }
+  pollTimer = {
+    tick: setInterval(tickCountdown, 1000),
+    refresh: setInterval(() => refresh().catch(() => {}), 4000)
+  };
+}
+
+function tickCountdown() {
+  if (!lastInfo) return;
+  const phase = num(lastInfo.phase);
+  const now = Math.floor(Date.now() / 1000);
+  const deadline = num(lastInfo.phaseDeadline);
+  if (phase === 1 || phase === 2) {
+    const left = Math.max(0, deadline - now);
+    $("countdown").textContent =
+      String(Math.floor(left / 60)).padStart(2, "0") + ":" + String(left % 60).padStart(2, "0");
+    $("countdown").style.color = left <= 3 && left > 0 ? "var(--accent)" : "";
+  } else {
+    $("countdown").textContent = "--:--";
+    $("countdown").style.color = "";
+  }
+}
+
+async function refresh() {
+  if (!contract || roomId == null) return;
+  try {
+    const info = await contract.roomInfo(roomId);
+    lastInfo = info;
+    const players = await contract.playersOf(roomId);
+    const round = num(info.currentRound);
+    const phase = num(info.phase);
+
+    const rows = [];
+    if (phase === 1) {
+      const committed = await Promise.all(players.map((p) => contract.commitmentOf(roomId, round, p)));
+      players.forEach((p, i) =>
+        rows.push({ p, committed: committed[i] !== ethers.ZeroHash, revealed: false, choice: null, forfeited: false })
+      );
+    } else if (phase === 2) {
+      const [committed, revealed] = await Promise.all([
+        Promise.all(players.map((p) => contract.commitmentOf(roomId, round, p))),
+        Promise.all(players.map((p) => contract.isRevealed(roomId, round, p)))
+      ]);
+      const choice = await Promise.all(
+        players.map((p, i) => (revealed[i] ? contract.choiceOf(roomId, round, p) : null))
+      );
+      players.forEach((p, i) =>
+        rows.push({
+          p,
+          committed: committed[i] !== ethers.ZeroHash,
+          revealed: revealed[i],
+          choice: revealed[i] ? num(choice[i]) : null,
+          forfeited: false
+        })
+      );
+    } else if (phase === 3) {
+      const forfeited = await Promise.all(players.map((p) => contract.isForfeited(roomId, p)));
+      players.forEach((p, i) =>
+        rows.push({ p, committed: false, revealed: false, choice: null, forfeited: forfeited[i] })
+      );
+    } else {
+      players.forEach((p) => rows.push({ p, committed: false, revealed: false, choice: null, forfeited: false }));
+    }
+    lastRows = rows;
+
+    $("roomPanel").style.display = "block";
+    $("phaseTag").textContent = PHASES[phase] || phase;
+    $("roundTag").textContent = phase === 0 ? "未开始" : "第 " + round + " / " + num(info.rounds) + " 轮";
+    $("pot").textContent = fmt(info.pot);
+    $("players").textContent = players.length + " / " + num(info.maxPlayers);
+    $("sponsorMatch").textContent = fmt(info.sponsorMatch);
+    const revealedCount = rows.filter((r) => r.revealed).length;
+    $("revealCount").textContent = revealedCount + " / " + players.length;
+    $("sponsor").textContent = info.sponsor && info.sponsor !== zeroAddr ? short(info.sponsor) : "未配资";
+    $("host").textContent = short(info.host);
+
+    renderPlayers(rows);
+    renderActions(info, rows);
+    renderBanner(info);
+    autoAdvance(info, rows);
+    tickCountdown();
+  } catch (e) {
+    console.error(e);
+    log("刷新失败：" + (e.shortMessage || e.message || e));
+  }
+}
+
+// 房主/赞助方是“司机”：到点自动推进阶段、代所有人揭晓、并结算（gas 由房主/赞助方出）。
+// 普通玩家：只需在 Commit 阶段点一次“提交”，其余全自动。
+async function revealKnown(players) {
+  const round = num(lastInfo.currentRound);
+  const already = new Set((lastRows || []).filter((r) => r.revealed).map((r) => r.p.toLowerCase()));
+  for (const p of players) {
+    if (already.has(p.toLowerCase())) continue;
+    const rec = JSON.parse(localStorage.getItem(saltKey(roomId, p)) || "null");
+    if (!rec) continue;
+    const tx = await contract.connect(signer).reveal(roomId, p, rec.choice, rec.salt);
+    log("👁 代揭晓 " + short(p) + "：" + tx.hash.slice(0, 10) + "...");
+    await tx.wait();
+    already.add(p.toLowerCase());
+  }
+}
+
+async function autoAdvance(info, rows) {
+  if (!signer || !contract) return;
+  const phase = num(info.phase);
+  const round = num(info.currentRound);
+  const now = Math.floor(Date.now() / 1000);
+  const deadline = num(info.phaseDeadline);
+  const acct = (account || "").toLowerCase();
+  const me = rows.find((r) => r.p.toLowerCase() === acct);
+  const isHost = info.host.toLowerCase() === acct;
+  const isSponsor = info.sponsor && info.sponsor !== zeroAddr && info.sponsor.toLowerCase() === acct;
+  const isDriver = isHost || isSponsor;
+  try {
+    if (phase === 1 && now >= deadline && isDriver && autoRound.begin !== round) {
+      autoRound.begin = round;
+      await contract.connect(signer).beginReveal(roomId);
+      log("⏱ 房主/赞助方自动进入揭晓");
+      return;
+    }
+    if (phase === 2) {
+      if (isDriver && autoRound.reveal !== round) {
+        autoRound.reveal = round;
+        await revealKnown(rows.map((r) => r.p));
+        return;
+      }
+      if (isDriver && now >= deadline && autoRound.settle !== round) {
+        autoRound.settle = round;
+        await contract.connect(signer).settleRound(roomId);
+        log("⚖️ 房主/赞助方自动结算");
+        return;
+      }
+      if (!isDriver && me && me.committed && !me.revealed && autoRound.reveal !== round) {
+        const rec = JSON.parse(localStorage.getItem(saltKey(roomId, account)) || "null");
+        if (rec) {
+          autoRound.reveal = round;
+          await contract.connect(signer).reveal(roomId, account, rec.choice, rec.salt);
+          log("👁 自动揭晓自己的选择");
+          return;
+        }
+      }
+    }
+  } catch (e) {
+    const m = e.shortMessage || e.message || "";
+    if (!/not commit|not reveal|committed|revealed|full|sponsored|wrong|no room|bad reveal/.test(m)) {
+      console.error("auto", m);
+    }
+  }
+}
+
+async function act(action) {
+  if (!contract) { log("先加载合约"); return; }
+  if (action === "join") {
+    await withTx((s) => contract.connect(s).joinRoom(roomId, { value: lastInfo.stake }));
+  } else if (action === "sponsor") {
+    await withTx((s) => contract.connect(s).sponsorRoom(roomId, { value: lastInfo.stake * BigInt(num(lastInfo.maxPlayers)) }));
+  } else if (action === "start") {
+    await withTx((s) => contract.connect(s).startGame(roomId));
+  } else if (action === "beginReveal") {
+    await withTx((s) => contract.connect(s).beginReveal(roomId));
+  } else if (action === "settle") {
+    await withTx((s) => contract.connect(s).settleRound(roomId));
+  } else if (action === "commit0" || action === "commit1") {
+    const choice = action === "commit1" ? 1 : 0;
+    const round = num(lastInfo.currentRound);
+    const salt = randomSalt();
+    const commitment = await contract.hashCommitment(
+      choice,
+      salt,
+      ethers.getAddress(account),
+      BigInt(roomId),
+      round
+    );
+    localStorage.setItem(saltKey(roomId, account), JSON.stringify({ choice, salt }));
+    await withTx((s) => contract.connect(s).commit(roomId, commitment));
+  } else if (action === "reveal") {
+    const rec = JSON.parse(localStorage.getItem(saltKey(roomId, account)) || "null");
+    if (!rec) { log("本机没有这个账号在本轮的选择记录（可能是在别的浏览器提交的）"); return; }
+    await withTx((s) => contract.connect(s).reveal(roomId, account, rec.choice, rec.salt));
+  } else if (action === "revealAll") {
+    const players = await contract.playersOf(roomId);
+    await revealKnown(players);
+    await refresh();
+  } else {
+    log("未知操作 " + action);
+  }
+}
+
+document.addEventListener("click", async (ev) => {
+  const btn = ev.target.closest("button[data-action]");
+  if (btn) act(btn.dataset.action);
+});
+
+$("connectBtn").onclick = () => connect().catch((e) => log("连接失败：" + (e.message || e)));
+$("loadBtn").onclick = async () => {
+  loadContract();
+  if (!contract) return;
+  try {
+    const n = await contract.nextRoomId();
+    log("合约已加载 ✓（nextRoomId = " + num(n) + "）");
+    refresh().catch(() => {});
+  } catch (e) {
+    log("合约加载失败：这个地址可能不是 BetrayalGame 合约（或网络不对）。请确认复制的是 Remix「Deployed Contracts」里 BETRAYALGAME 后面的 0x 地址，而不是你的钱包地址。");
+  }
+};
+$("createBtn").onclick = async () => {
+  if (!contract) { log("先加载合约"); return; }
+  const mp = parseInt($("cPlayers").value);
+  const rn = parseInt($("cRounds").value);
+  const cs = parseInt($("cCommit").value);
+  const rs = parseInt($("cReveal").value);
+  const stake = ethers.parseEther($("cStake").value || "0.01");
+  try {
+    if (!signer) await connect();
+    const tx = await contract.connect(signer).createRoom(mp, rn, cs, rs, stake);
+    log("创建中：" + tx.hash);
+    const rc = await tx.wait();
+    let id = null;
+    for (const lg of rc.logs || []) {
+      try {
+        const p = contract.interface.parseLog(lg);
+        if (p && p.name === "RoomCreated") id = num(p.args.roomId);
+      } catch (e) {}
+    }
+    if (id == null) id = num(await contract.nextRoomId()) - 1;
+    roomId = id;
+    $("roomId").value = id;
+    autoRound = { begin: -1, settle: -1, reveal: -1 };
+    log("房间已创建，ID = " + id + "。请用 5 个账号依次加入，然后赞助配资。");
+    await refresh();
+  } catch (e) {
+    log("创建失败：" + (e.shortMessage || e.message || e));
+  }
+};
+$("openRoomBtn").onclick = () => {
+  const id = parseInt($("roomId").value);
+  if (!id && id !== 0) { log("房间 ID 不对"); return; }
+  roomId = id;
+  autoRound = { begin: -1, settle: -1, reveal: -1 };
+  refresh().catch((e) => log("加载房间失败：" + (e.shortMessage || e.message || e)));
+};
+
+window.addEventListener("load", () => {
+  const saved = localStorage.getItem("bg_contract");
+  if (saved) { $("addr").value = saved; contractAddress = saved; }
+  if (window.ethereum) {
+    window.ethereum.on("accountsChanged", () => location.reload());
+    window.ethereum.on("chainChanged", () => location.reload());
+  }
+});
+</script>
+</body>
+</html>
